@@ -14,6 +14,17 @@ get_lid_status() {
   grep -i "open" /proc/acpi/button/lid/LID/state >/dev/null && echo "open" || echo "closed"
 }
 
+# Move all workspaces to the primary monitor
+move_workspaces() {
+  primary_monitor=$1
+  # Get a list of all workspaces
+  workspaces=$(i3-msg -t get_workspaces | jq -r '.[].name')
+  for ws in $workspaces; do
+    i3-msg workspace "$ws"
+    i3-msg move workspace to output "$primary_monitor"
+  done
+}
+
 # Get the lid status
 LID_STATUS=$(get_lid_status)
 
@@ -32,6 +43,7 @@ if type "xrandr"; then
     # If the lid is closed and external monitors are connected
     primary_monitor=$(echo "$external_monitors" | head -n 1)
     xrandr --output "$primary_monitor" --primary --auto --output "$LAPTOP_SCREEN" --off
+    move_workspaces "$primary_monitor"
     echo "Disabling laptop screen ($LAPTOP_SCREEN) and setting $primary_monitor as primary"
     for m in $external_monitors; do
       MONITOR=$m polybar --reload bar &
@@ -42,6 +54,7 @@ if type "xrandr"; then
     if [ -n "$external_monitors" ]; then
       primary_monitor=$(echo "$external_monitors" | head -n 1)
       xrandr --output "$primary_monitor" --primary --auto --right-of "$LAPTOP_SCREEN" --output "$LAPTOP_SCREEN" --auto
+      move_workspaces "$primary_monitor"
       echo "Enabling laptop screen ($LAPTOP_SCREEN) with $primary_monitor as primary and extending to the right"
       for m in $external_monitors; do
         MONITOR=$m polybar --reload bar &
@@ -52,6 +65,7 @@ if type "xrandr"; then
     else
       # No external monitors, enable the laptop screen
       xrandr --output "$LAPTOP_SCREEN" --auto --primary
+      move_workspaces "$LAPTOP_SCREEN"
       MONITOR=$LAPTOP_SCREEN polybar --reload bar &
       echo "Enabling laptop screen ($LAPTOP_SCREEN) as primary"
     fi
